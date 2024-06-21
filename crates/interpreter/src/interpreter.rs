@@ -127,10 +127,13 @@ impl Interpreter {
         }
     }
 
-    fn display_stack(stack: Vec<U256>) -> Vec<Vec<u64>> {
+    fn display_stack(stack: Vec<U256>) -> Vec<String> {
         stack
             .into_iter()
-            .map(|elem| elem.to_base_be(10).collect::<Vec<u64>>())
+            .map(|elem| {
+                let bytes: [u8; 32] = elem.to_be_bytes();
+                hex::encode(bytes)
+            })
             .collect()
     }
 
@@ -141,7 +144,7 @@ impl Interpreter {
         let opcode = unsafe { *self.instruction_pointer };
 
         let gas_before = self.gas.spend();
-        let memory_before = self.memory.clone();
+        let memory_before = self.memory.data().clone();
         let stack_before = self.stack.data().clone();
 
         // Safety: In analysis we are doing padding of bytecode so that we are sure that last
@@ -151,7 +154,7 @@ impl Interpreter {
         eval::<H, SPEC>(opcode, self, host);
 
         let gas_after = self.gas.spend();
-        let memory_after = self.memory.clone();
+        let memory_after = self.memory.data().clone();
         let stack_after = self.stack.data().clone();
 
         if [
@@ -168,19 +171,19 @@ impl Interpreter {
             // let precompile = &stack_before.data()[stack_before.len() - 2];
             // println!("precompile address: {precompile:?}");
 
-            // println!("before STACK: {:?}", Self::display_stack(stack_before));
-            // println!("after STACK: {:?}", Self::display_stack(stack_after));
+            println!("before STACK: {:X?}", Self::display_stack(stack_before));
+            println!("after STACK: {:X?}", Self::display_stack(stack_after));
 
-            println!("before STACK: {:?}", stack_before);
-            println!("after STACK: {:?}", stack_after);
+            // println!("before STACK: {:?}", stack_before);
+            // println!("after STACK: {:?}", stack_after);
 
             // println!("before GAS: {:?}", gas_before);
             // println!("after GAS: {:?}", gas_after);
             // let consumed_gas = gas_after - gas_before;
             // println!("consumed gas: {consumed_gas}");
 
-            println!("before MEMORY: {memory_before:?}");
-            println!("after MEMORY: {memory_after:?}");
+            println!("before MEMORY: {}", hex::encode(memory_before));
+            println!("after MEMORY: {}", hex::encode(memory_after));
 
             // println!("{precompile},{consumed_gas}");
         }

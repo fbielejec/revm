@@ -2353,6 +2353,7 @@ dependencies = [
  "arbitrary",
  "derive_more",
  "enumn",
+ "hex",
  "proptest",
  "proptest-derive",
  "revm-primitives",
