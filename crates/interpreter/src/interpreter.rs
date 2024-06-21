@@ -9,6 +9,7 @@ use crate::{alloc::boxed::Box, opcode::eval, Gas, Host, InstructionResult};
 pub use analysis::BytecodeLocked;
 pub use contract::Contract;
 pub use memory::Memory;
+use revm_primitives::U256;
 pub use stack::{Stack, STACK_LIMIT};
 
 pub const CALL_STACK_LIMIT: u64 = 1024;
@@ -126,16 +127,63 @@ impl Interpreter {
         }
     }
 
+    fn display_stack(stack: Vec<U256>) -> Vec<Vec<u64>> {
+        stack
+            .into_iter()
+            .map(|elem| elem.to_base_be(10).collect::<Vec<u64>>())
+            .collect()
+    }
+
     /// Executes the instruction at the current instruction pointer.
     #[inline(always)]
     pub fn step<H: Host, SPEC: Spec>(&mut self, host: &mut H) {
         // step.
         let opcode = unsafe { *self.instruction_pointer };
+
+        let gas_before = self.gas.spend();
+        let memory_before = self.memory.clone();
+        let stack_before = self.stack.data().clone();
+
         // Safety: In analysis we are doing padding of bytecode so that we are sure that last
         // byte instruction is STOP so we are safe to just increment program_counter bcs on last instruction
         // it will do noop and just stop execution of this contract
         self.instruction_pointer = unsafe { self.instruction_pointer.offset(1) };
         eval::<H, SPEC>(opcode, self, host);
+
+        let gas_after = self.gas.spend();
+        let memory_after = self.memory.clone();
+        let stack_after = self.stack.data().clone();
+
+        if [
+            // 0xfa, // STATICCALL
+            // 0x01, // ADD
+            0x51, // MLOAD
+            0x52, // MSTORE
+        ]
+        .iter()
+        .any(|code| opcode.eq(code))
+        {
+            println!("OPCODE: 0x{opcode:X}");
+
+            // let precompile = &stack_before.data()[stack_before.len() - 2];
+            // println!("precompile address: {precompile:?}");
+
+            // println!("before STACK: {:?}", Self::display_stack(stack_before));
+            // println!("after STACK: {:?}", Self::display_stack(stack_after));
+
+            println!("before STACK: {:?}", stack_before);
+            println!("after STACK: {:?}", stack_after);
+
+            // println!("before GAS: {:?}", gas_before);
+            // println!("after GAS: {:?}", gas_after);
+            // let consumed_gas = gas_after - gas_before;
+            // println!("consumed gas: {consumed_gas}");
+
+            println!("before MEMORY: {memory_before:?}");
+            println!("after MEMORY: {memory_after:?}");
+
+            // println!("{precompile},{consumed_gas}");
+        }
     }
 
     /// Executes the interpreter until it returns or stops.
